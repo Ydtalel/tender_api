@@ -1,7 +1,21 @@
+# Virtual environments
+.venv/
+env/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+
+# Environment variables
 .env
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-/out/
+
+# SQLite database (in case it is used)
+*.sqlite3
+
+# IDE/Editor files
+.idea/
+.vscode/
+
+# OS-specific files
+.DS_Store  # Mac OS
+Thumbs.db  # Windows
