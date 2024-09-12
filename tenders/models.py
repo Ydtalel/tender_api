@@ -1,21 +1,84 @@
 from django.db import models
-from django.contrib.auth.models import User
+
+
+class Employee(models.Model):
+    """Модель пользователя"""
+
+    username = models.CharField(max_length=50, unique=True)
+    first_name = models.CharField(max_length=50, blank=True, null=True)
+    last_name = models.CharField(max_length=50, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.username
+
+    class Meta:
+        managed = True  # поменять на false перед последним коммитом
+        db_table = 'employee'
+
+
+class Organization(models.Model):
+    """Модель организации"""
+
+    ORGANIZATION_TYPES = [
+        ('IE', 'IE'),
+        ('LLC', 'LLC'),
+        ('JSC', 'JSC'),
+    ]
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    type = models.CharField(max_length=3, choices=ORGANIZATION_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        managed = True  # поменять на false перед последним коммитом
+        db_table = 'organization'
+
+
+class OrganizationResponsible(models.Model):
+    """Модель для связи организации с ответственным пользователем"""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    user = models.ForeignKey(Employee, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user.username} - {self.organization.name}'
+
+    class Meta:
+        managed = True  # поменять на false перед последним коммитом
+        db_table = 'organization_responsible'
 
 
 class Tender(models.Model):
+    """Модель тендера"""
+
     STATUS_CHOICES = [
         ('CREATED', 'Created'),
         ('PUBLISHED', 'Published'),
         ('CLOSED', 'Closed'),
     ]
 
+    SERVICE_TYPE_CHOICES = [
+        ('Construction', 'Construction'),
+        ('Consulting', 'Consulting'),
+        ('IT', 'IT'),
+        ('Other', 'Other'),
+    ]
+
     name = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(blank=True, null=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES,
                               default='CREATED')
-    organization = models.ForeignKey('Organization', on_delete=models.CASCADE)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    service_type = models.CharField(max_length=50,
+                                    choices=SERVICE_TYPE_CHOICES)
     version = models.PositiveIntegerField(default=1)
+    creator = models.ForeignKey(Employee, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -24,6 +87,8 @@ class Tender(models.Model):
 
 
 class Bid(models.Model):
+    """Модель предложения на тендер"""
+
     STATUS_CHOICES = [
         ('CREATED', 'Created'),
         ('PUBLISHED', 'Published'),
@@ -31,57 +96,15 @@ class Bid(models.Model):
     ]
 
     name = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES,
                               default='CREATED')
-    tender = models.ForeignKey(Tender, on_delete=models.CASCADE)
-    organization = models.ForeignKey('Organization', on_delete=models.CASCADE)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
     version = models.PositiveIntegerField(default=1)
+    tender = models.ForeignKey(Tender, on_delete=models.CASCADE)
+    creator = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
-
-
-class Review(models.Model):
-    bid = models.ForeignKey(Bid, on_delete=models.CASCADE)
-    reviewer = models.ForeignKey(User, on_delete=models.CASCADE)
-    feedback = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Review by {self.reviewer} on {self.bid}"
-
-
-class Employee(models.Model):
-    id = models.AutoField(primary_key=True)
-    username = models.CharField(max_length=50, unique=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
-
-    class Meta:
-        db_table = 'employee'
-        managed = False
-
-
-class Organization(models.Model):
-    ORGANIZATION_TYPES = [
-        ('IE', 'Individual Entrepreneur'),
-        ('LLC', 'Limited Liability Company'),
-        ('JSC', 'Joint Stock Company')
-    ]
-
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=100)
-    description = models.TextField()
-    type = models.CharField(max_length=3, choices=ORGANIZATION_TYPES)
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
-
-    class Meta:
-        db_table = 'organization'
-        managed = False
