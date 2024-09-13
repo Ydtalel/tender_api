@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tender, Bid
+from .models import Tender, Bid, Review
 
 
 class BaseSerializer(serializers.ModelSerializer):
@@ -23,3 +23,12 @@ class BidSerializer(BaseSerializer):
 
     class Meta(BaseSerializer.Meta):
         model = Bid
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """Сериализатор для отзывов на предложения"""
+
+    class Meta:
+        model = Review
+        fields = ['id', 'bid', 'author', 'content', 'created_at']
+        read_only_fields = ['author', 'created_at']

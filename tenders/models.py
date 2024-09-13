@@ -14,7 +14,7 @@ class Employee(models.Model):
         return self.username
 
     class Meta:
-        managed = True  # поменять на false перед последним коммитом
+        managed = False
         db_table = 'employee'
 
 
@@ -36,7 +36,7 @@ class Organization(models.Model):
         return self.name
 
     class Meta:
-        managed = True  # поменять на false перед последним коммитом
+        managed = False
         db_table = 'organization'
 
 
@@ -50,7 +50,7 @@ class OrganizationResponsible(models.Model):
         return f'{self.user.username} - {self.organization.name}'
 
     class Meta:
-        managed = True  # поменять на false перед последним коммитом
+        managed = False
         db_table = 'organization_responsible'
 
 
@@ -137,3 +137,15 @@ class BidVersion(models.Model):
 
     def __str__(self):
         return f"Version {self.version} of {self.bid.name}"
+
+
+class Review(models.Model):
+    """Модель для хранения отзывов на предложения"""
+    bid = models.ForeignKey(Bid, related_name='reviews',
+                            on_delete=models.CASCADE)
+    author = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Review by {self.author.username} on {self.bid.name}"

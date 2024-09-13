@@ -6,8 +6,8 @@ from rest_framework.permissions import AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Tender, Bid, OrganizationResponsible, Employee, \
-    TenderVersion, BidVersion
-from .serializers import TenderSerializer, BidSerializer
+    TenderVersion, BidVersion, Review
+from .serializers import TenderSerializer, BidSerializer, ReviewSerializer
 from .permissions import (
     IsOrganizationResponsible,
     IsTenderCreatorOrResponsible
@@ -79,7 +79,8 @@ class BaseTenderBidViewSet(viewsets.ModelViewSet):
                 **version_data
             )
 
-    @action(detail=True, methods=['put'], url_path='rollback/(?P<version>[0-9]+)')
+    @action(detail=True, methods=['put'],
+            url_path='rollback/(?P<version>[0-9]+)')
     def rollback(self, request, pk=None, version=None):
         """Откат к указанной версии для тендера или предложения"""
         instance = self.get_object()
@@ -221,3 +222,83 @@ class BidViewSet(BaseTenderBidViewSet):
 
         serializer = self.get_serializer(bids, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='reviews')
+    def list_reviews_for_bid(self, request, pk=None):
+        """
+        Возвращает список отзывов для предложения, созданного определенным
+        автором
+        """
+        author_username = request.query_params.get('authorUsername')
+        organization_id = request.query_params.get('organizationId')
+
+        # Проверяем, что указаны оба параметра
+        if not author_username or not organization_id:
+            return Response(
+                {
+                    "detail": "Both authorUsername and organizationId "
+                              "are required."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            bid = Bid.objects.get(pk=pk)
+        except Bid.DoesNotExist:
+            return Response({"detail": "Bid not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        if not OrganizationResponsible.objects.filter(
+                user__username=author_username,
+                organization_id=organization_id).exists():
+            return Response({"detail": "Вы не ответственны за организацию."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        reviews = Review.objects.filter(bid=bid,
+                                        author__username=author_username)
+        serializer = ReviewSerializer(reviews, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='feedback')
+    def create_review_for_bid(self, request, pk=None):
+        """
+        Создает отзыв для предложения (Bid)
+        """
+        user = request.data.get('authorUsername')
+        organization_id = request.data.get('organizationId')
+
+        if not user or not organization_id:
+            return Response(
+                {
+                    "detail":
+                        "Both authorUsername and organizationId are required."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            bid = Bid.objects.get(pk=pk)
+        except Bid.DoesNotExist:
+            return Response(
+                {"detail": "Bid not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not OrganizationResponsible.objects.filter(
+                user__username=user,
+                organization_id=organization_id
+        ).exists():
+            return Response(
+                {"detail": "Вы не ответственны за организацию."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        review_content = request.data.get('content')
+        if not review_content:
+            return Response({"detail": "Review content is required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        author = Employee.objects.get(username=user)
+        Review.objects.create(bid=bid, author=author, content=review_content)
+        return Response({"detail": "Review created successfully"},
+                        status=status.HTTP_201_CREATED)
