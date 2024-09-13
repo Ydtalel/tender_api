@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Tender, Bid, OrganizationResponsible, Employee
+from .models import Tender, Bid, OrganizationResponsible, Employee, \
+    TenderVersion, BidVersion
 from .serializers import TenderSerializer, BidSerializer
 from .permissions import (
     IsOrganizationResponsible,
@@ -48,11 +49,76 @@ class BaseTenderBidViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        """Обновляет объект, увеличивая его версию"""
-        obj = self.get_object()
-        obj.version += 1
-        obj.save()
+        """
+        Обновляет объект, увеличивая его версию и сохраняет предыдущую версию
+        """
+        instance = self.get_object()
+        self.save_version(instance)
+        instance.version += 1
+        instance.save()
         return super().update(request, *args, **kwargs)
+
+    def save_version(self, instance):
+        """Сохранение текущей версии объекта перед изменением"""
+        version_data = {
+            'name': instance.name,
+            'description': instance.description,
+            'status': instance.status,
+            'version': instance.version
+        }
+
+        if isinstance(instance, Tender):
+            TenderVersion.objects.create(
+                tender=instance,
+                service_type=instance.service_type,
+                **version_data
+            )
+        elif isinstance(instance, Bid):
+            BidVersion.objects.create(
+                bid=instance,
+                **version_data
+            )
+
+    @action(detail=True, methods=['put'], url_path='rollback/(?P<version>[0-9]+)')
+    def rollback(self, request, pk=None, version=None):
+        """Откат к указанной версии для тендера или предложения"""
+        instance = self.get_object()
+        version_number = int(version)
+
+        if version_number >= instance.version or version_number <= 0:
+            return Response({"detail": "Invalid version for rollback."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if isinstance(instance, Tender):
+            version_obj = TenderVersion.objects.filter(
+                tender=instance,
+                version=version_number
+            ).first()
+        elif isinstance(instance, Bid):
+            version_obj = BidVersion.objects.filter(
+                bid=instance,
+                version=version_number
+            ).first()
+
+        if not version_obj:
+            return Response({"detail": "Version not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        self.save_version(instance)
+
+        instance.name = version_obj.name
+        instance.description = version_obj.description
+        instance.status = version_obj.status
+        if isinstance(instance, Tender):
+            instance.service_type = version_obj.service_type
+        instance.version += 1
+        instance.save()
+
+        return Response(
+            {"detail": f"{instance.__class__.__name__} "
+                       f"rolled back to version {version_number}."},
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=['post'], url_path='new')
     def create_obj(self, request):
@@ -102,8 +168,16 @@ class BaseTenderBidViewSet(viewsets.ModelViewSet):
         return self.partial_update(request)
 
     def partial_update(self, request, *args, **kwargs):
-        """Частично обновляет объект"""
-        return super().partial_update(request, *args, **kwargs)
+        """Частично обновляет объект, увеличивая версию"""
+        instance = self.get_object()
+        self.save_version(instance)
+        instance.version += 1
+        instance.save()
+        serializer = self.get_serializer(instance, data=request.data,
+                                         partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 class TenderViewSet(BaseTenderBidViewSet):
@@ -112,6 +186,20 @@ class TenderViewSet(BaseTenderBidViewSet):
     queryset = Tender.objects.all()
     serializer_class = TenderSerializer
     filterset_class = TenderFilter
+
+    def update(self, request, *args, **kwargs):
+        tender = self.get_object()
+        TenderVersion.objects.create(
+            tender=tender,
+            name=tender.name,
+            description=tender.description,
+            status=tender.status,
+            service_type=tender.service_type,
+            version=tender.version
+        )
+        tender.version += 1
+        tender.save()
+        return super().update(request, *args, **kwargs)
 
 
 class BidViewSet(BaseTenderBidViewSet):

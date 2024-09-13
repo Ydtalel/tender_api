@@ -86,6 +86,21 @@ class Tender(models.Model):
         return self.name
 
 
+class TenderVersion(models.Model):
+    """Модель для хранения версий тендера"""
+    tender = models.ForeignKey(Tender, related_name='versions',
+                               on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=10)
+    service_type = models.CharField(max_length=50)
+    version = models.PositiveIntegerField()
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Version {self.version} of {self.tender.name}"
+
+
 class Bid(models.Model):
     """Модель предложения на тендер"""
 
@@ -108,3 +123,17 @@ class Bid(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class BidVersion(models.Model):
+    """Модель для хранения версий предложения"""
+    bid = models.ForeignKey(Bid, related_name='versions',
+                            on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=10)
+    version = models.PositiveIntegerField()
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Version {self.version} of {self.bid.name}"
