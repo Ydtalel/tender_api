@@ -232,7 +232,6 @@ class BidViewSet(BaseTenderBidViewSet):
         author_username = request.query_params.get('authorUsername')
         organization_id = request.query_params.get('organizationId')
 
-        # Проверяем, что указаны оба параметра
         if not author_username or not organization_id:
             return Response(
                 {
