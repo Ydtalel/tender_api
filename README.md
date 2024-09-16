@@ -17,7 +17,7 @@
 ```
 git clone https://github.com/Ydtalel/tender_api.git
 ```
-`tender_api`
+`cd tender_api`
 
 python -m venv .venv  
 source .venv/bin/activate # На Windows используйте .venv\Scripts\activate
