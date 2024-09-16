@@ -15,9 +15,10 @@
 ### Клонирование репозитория
 
 ```
-git clone https://git.codenrock.com/avito-testirovanie-na-backend-1270/cnrprod1725864137-team-77037/tender_service.git
-cd tender_service
+git clone https://github.com/Ydtalel/tender_api.git
 ```
+`cd tender_service`
+
 python -m venv .venv  
 source .venv/bin/activate # На Windows используйте .venv\Scripts\activate
 
